@@ -5,32 +5,47 @@ import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ModeToggle } from "../../ThemeToggler/page";
+//import { ModeToggle } from "@/Components/ThemeToggler/page";
+
+interface User {
+  id: string;
+  email: string | null;
+}
+
 export default function Navbar() {
   const supabase = createClient();
   const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
 
-  const [user, setUser] = useState<any>(null);
-
-  // fetch user on mount
   useEffect(() => {
     const getUser = async () => {
       const {
         data: { user },
         error,
       } = await supabase.auth.getUser();
-      if (!error) setUser(user);
+      if (!error && user) setUser({ id: user.id, email: user.email });
     };
 
     getUser();
 
-    // Listen for auth state changes (login/logout)
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session?.user) setUser({ id: session.user.id, email: session.user.email });
+        else setUser(null);
+      }
+    );
 
-    return () => {
-      listener.subscription.unsubscribe();
-    };
+    return () => listener.subscription.unsubscribe();
   }, [supabase]);
 
   const handleLogout = async () => {
@@ -40,44 +55,94 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="w-full bg-gray-800 text-white px-6 py-3 flex justify-between items-center shadow">
-      <div className="flex gap-6">
-        <Link href="/" className="font-bold text-lg hover:text-gray-300">
+    <header className="w-full bg-white dark:bg-gray-900 shadow-md sticky top-0 z-50 transition-colors">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
+        {/* Logo */}
+        <Link
+          href="/"
+          className="font-bold text-xl text-indigo-700 dark:text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors"
+        >
           Lead Manager
         </Link>
 
-        {user && (
-          <>
-            <Link href="/private/buyers" className="hover:text-gray-300">
-              Buyers
-            </Link>
-            <Link href="/private/buyers/new" className="hover:text-gray-300">
-              New Lead
-            </Link>
-          </>
-        )}
-      </div>
+        {/* Desktop Menu */}
+        <nav className="hidden md:flex items-center gap-4">
+          {user && (
+            <>
+              <Link
+                href="/private/buyers"
+                className="text-gray-700 dark:text-gray-200 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors"
+              >
+                Buyers
+              </Link>
+              <Link
+                href="/private/buyers/new"
+                className="text-gray-700 dark:text-gray-200 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors"
+              >
+                New Lead
+              </Link>
+            </>
+          )}
+        </nav>
 
-      <div>
-        {user ? (
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-300">{user.email}</span>
-            <button
-              onClick={handleLogout}
-              className="bg-red-500 px-3 py-1 rounded hover:bg-red-600"
-            >
-              Logout
-            </button>
-          </div>
-        ) : (
-          <Link
-            href="/auth/login"
-            className="bg-blue-500 px-3 py-1 rounded hover:bg-blue-600"
-          >
-            Login
-          </Link>
-        )}
+        {/* Auth + Theme Toggle */}
+        <div className="hidden md:flex items-center gap-4">
+          <ModeToggle />
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">{user.email}</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Link href="/auth/login">
+              <Button>Login</Button>
+            </Link>
+          )}
+        </div>
+
+        {/* Mobile Menu */}
+        <Sheet>
+          <SheetTrigger asChild className="md:hidden">
+            <Button variant="ghost">Menu</Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-64">
+            <ScrollArea className="h-full">
+              <div className="flex flex-col gap-4 mt-4">
+                <ModeToggle />
+                {user && (
+                  <>
+                    <Link
+                      href="/private/buyers"
+                      className="text-gray-700 dark:text-gray-200 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors"
+                    >
+                      Buyers
+                    </Link>
+                    <Link
+                      href="/private/buyers/new"
+                      className="text-gray-700 dark:text-gray-200 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors"
+                    >
+                      New Lead
+                    </Link>
+                  </>
+                )}
+                {user ? (
+                  <Button variant="destructive" onClick={handleLogout}>
+                    Logout
+                  </Button>
+                ) : (
+                  <Link href="/auth/login">
+                    <Button>Login</Button>
+                  </Link>
+                )}
+              </div>
+            </ScrollArea>
+          </SheetContent>
+        </Sheet>
       </div>
-    </nav>
+    </header>
   );
 }

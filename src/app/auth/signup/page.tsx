@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { login, loginWithOtp } from "./actions";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -17,25 +16,29 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
-export default function LoginPage() {
+export default function SignupPage() {
   const supabase = createClient();
   const router = useRouter();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  // Magic Link handler
-  const handleMagicLink = async () => {
+  const handleSignup = async () => {
     setLoading(true);
     setMessage(null);
 
-    const { error } = await supabase.auth.signInWithOtp({
+    if (password !== confirmPassword) {
+      setMessage("Passwords do not match!");
+      setLoading(false);
+      return;
+    }
+
+    const { data, error } = await supabase.auth.signUp({
       email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
+      password,
     });
 
     setLoading(false);
@@ -43,7 +46,9 @@ export default function LoginPage() {
     if (error) {
       setMessage(error.message);
     } else {
-      setMessage("Check your email for the magic link!");
+      setMessage("Signup successful! Check your email to verify your account.");
+      // Optional: redirect to login after signup
+      // router.push("/auth/login");
     }
   };
 
@@ -52,16 +57,15 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-xl rounded-2xl dark:bg-gray-800 dark:border dark:border-gray-700">
         <CardHeader className="px-6 pt-6">
           <CardTitle className="text-2xl font-bold text-center text-indigo-700 dark:text-indigo-400">
-            Lead Manager Login
+            Create Account
           </CardTitle>
           <CardDescription className="text-center text-gray-600 dark:text-gray-300 mt-1">
-            Sign in to access your dashboard
+            Sign up to start managing your leads
           </CardDescription>
         </CardHeader>
 
         <CardContent className="px-6 pb-6 space-y-4">
-          {/* Email/Password Form */}
-          <form action={login} className="space-y-4">
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -90,16 +94,30 @@ export default function LoginPage() {
               />
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password">Confirm Password</Label>
+              <Input
+                id="confirm-password"
+                name="confirm-password"
+                type="password"
+                placeholder="••••••••"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="bg-white dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+
             <Button
-              type="submit"
+              type="button"
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white dark:bg-indigo-500 dark:hover:bg-indigo-600"
+              onClick={handleSignup}
               disabled={loading}
             >
-              {loading ? "Signing in..." : "Sign in"}
+              {loading ? "Signing up..." : "Sign Up"}
             </Button>
-          </form>
+          </div>
 
-          {/* Separator */}
           <div className="relative my-6">
             <Separator />
             <span className="absolute left-1/2 -translate-x-1/2 -top-3 px-2 text-gray-400 dark:text-gray-300 text-sm bg-white dark:bg-gray-800">
@@ -107,25 +125,19 @@ export default function LoginPage() {
             </span>
           </div>
 
-
-
-          {/* Magic Link */}
           <Button
             type="button"
-            onClick={handleMagicLink}
+            onClick={() => router.push("/auth/login")}
             className="w-full bg-white border border-gray-300 text-indigo-600 hover:bg-indigo-50 dark:bg-gray-700 dark:border-gray-600 dark:text-indigo-400 dark:hover:bg-gray-600"
-            disabled={loading || !email}
           >
-            {loading ? "Sending..." : "Send Magic Link"}
+            Login Instead
           </Button>
 
-          {/* Message */}
           {message && (
             <p className="mt-4 text-center text-sm text-gray-600 dark:text-gray-300">
               {message}
             </p>
           )}
-          <p>Not Signed Up Yet? <a href="/auth/signup" className="text-indigo-600 hover:underline">Create an account</a></p>
         </CardContent>
       </Card>
     </div>

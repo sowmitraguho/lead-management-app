@@ -45,3 +45,19 @@ export async function signup(formData: FormData) {
   revalidatePath('/', 'layout')
   redirect('/')
 }
+
+export async function loginWithOtp(formData: FormData) {
+  const supabase = await createClient()
+
+  const email = formData.get('email') as string
+
+  const { error } = await supabase.auth.signInWithOtp({ email })
+
+  if (error) {
+    console.log('Login error:', error.message);
+    //redirect('/error')
+  }
+
+  revalidatePath('/', 'layout')
+  redirect('/')
+}
