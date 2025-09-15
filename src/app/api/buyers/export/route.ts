@@ -1,37 +1,56 @@
+
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getServerUser } from "@/lib/auth";
 import Papa from "papaparse";
+import type { Buyer } from "@prisma/client";
 
-export async function GET(req: Request) {
+interface BuyerFilters {
+  city?: string;
+  propertyType?: string;
+  status?: string;
+  timeline?: string;
+  search?: string;
+}
+
+export async function GET(req: Request): Promise<NextResponse> {
   const user = await getServerUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const url = new URL(req.url);
-  const filters = {
-    city: url.searchParams.get("city") || undefined,
-    propertyType: url.searchParams.get("propertyType") || undefined,
-    status: url.searchParams.get("status") || undefined,
-    timeline: url.searchParams.get("timeline") || undefined,
-    search: url.searchParams.get("search") || undefined,
+  const filters: BuyerFilters = {
+    city: url.searchParams.get("city") ?? undefined,
+    propertyType: url.searchParams.get("propertyType") ?? undefined,
+    status: url.searchParams.get("status") ?? undefined,
+    timeline: url.searchParams.get("timeline") ?? undefined,
+    search: url.searchParams.get("search") ?? undefined,
   };
 
-  const where: any = {};
+  // Build Prisma where object
+  const where: Parameters<typeof prisma.buyer.findMany>[0]["where"] = {};
   if (filters.city) where.city = filters.city;
   if (filters.propertyType) where.propertyType = filters.propertyType;
   if (filters.status) where.status = filters.status;
   if (filters.timeline) where.timeline = filters.timeline;
-  if (filters.search)
+  if (filters.search) {
     where.OR = [
       { fullName: { contains: filters.search, mode: "insensitive" } },
       { email: { contains: filters.search, mode: "insensitive" } },
       { phone: { contains: filters.search, mode: "insensitive" } },
     ];
+  }
 
-  const buyers = await prisma.buyer.findMany({ where, orderBy: { updatedAt: "desc" } });
+  // Fetch buyers
+  const buyers: Buyer[] = await prisma.buyer.findMany({
+    where,
+    orderBy: { updatedAt: "desc" },
+  });
 
+  // Convert to CSV
   const csv = Papa.unparse(
-    buyers.map(b => ({
+    buyers.map((b) => ({
       fullName: b.fullName,
       email: b.email,
       phone: b.phone,
@@ -50,6 +69,9 @@ export async function GET(req: Request) {
   );
 
   return new NextResponse(csv, {
-    headers: { "Content-Type": "text/csv", "Content-Disposition": "attachment; filename=buyers.csv" },
+    headers: {
+      "Content-Type": "text/csv",
+      "Content-Disposition": "attachment; filename=buyers.csv",
+    },
   });
 }
